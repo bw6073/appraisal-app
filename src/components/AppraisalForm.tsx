@@ -325,13 +325,18 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
   };
 
   const goNext = () => {
-    setStep((prev) => Math.min(8, (prev + 1) as Step));
+    setStep((prev) => {
+      if (prev >= 8) return prev;
+      return (prev + 1) as Step;
+    });
   };
 
   const goBack = () => {
-    setStep((prev) => Math.max(1, (prev - 1) as Step));
+    setStep((prev) => {
+      if (prev <= 1) return prev;
+      return (prev - 1) as Step;
+    });
   };
-
   const handleSameAsPropertyToggle = (checked: boolean) => {
     if (checked) {
       updateField(
