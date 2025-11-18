@@ -1,35 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PASSWORD = process.env.APPRAISAL_APP_PASSWORD || "1234";
+const CORRECT_PASSWORD = process.env.APP_PASSWORD?.trim() || "1234"; // default for now
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
-    const password = body?.password as string | undefined;
+    const body = await req.json().catch(() => ({}));
+    const password = body.password as string | undefined;
 
-    if (!password || password !== PASSWORD) {
+    if (!password || password !== CORRECT_PASSWORD) {
       return NextResponse.json(
         { ok: false, error: "Invalid password" },
         { status: 401 }
       );
     }
 
+    // ✅ Set a simple auth cookie
     const res = NextResponse.json({ ok: true });
 
-    // Set auth cookie
     res.cookies.set("appraisal_auth", "1", {
       httpOnly: true,
-      secure: true,
-      path: "/",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 8, // 8 hours
     });
 
     return res;
   } catch (err) {
     console.error("POST /api/login error", err);
     return NextResponse.json(
-      { ok: false, error: "Server error" },
+      { ok: false, error: "Login failed" },
       { status: 500 }
     );
   }
