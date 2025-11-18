@@ -585,6 +585,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
         {/* Navigation buttons */}
         <div className="mt-6 border-t pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Back button – hidden on step 1 */}
             <button
               type="button"
               onClick={goBack}
@@ -594,8 +595,9 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
               Back
             </button>
 
+            {/* Right-side buttons */}
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-              {/* Save draft is always available */}
+              {/* Save draft – ALWAYS visible */}
               <button
                 type="button"
                 onClick={() => handleSave(false)}
@@ -605,7 +607,29 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
                 {saving ? "Saving…" : "Save draft"}
               </button>
 
-              {step < 8 ? (
+              {/* Save & complete – ALWAYS visible */}
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+              >
+                {saving ? "Saving…" : "Save & complete"}
+              </button>
+
+              {/* Delete – only when editing */}
+              {mode === "edit" && appraisalId && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              )}
+
+              {/* Next – hide on final step */}
+              {step < 8 && (
                 <button
                   type="button"
                   onClick={goNext}
@@ -613,27 +637,6 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
                 >
                   Next
                 </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleSave(true)}
-                    disabled={saving}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-                  >
-                    {saving ? "Saving…" : "Save & complete"}
-                  </button>
-
-                  {mode === "edit" && appraisalId && (
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </>
               )}
             </div>
           </div>
