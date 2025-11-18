@@ -4,18 +4,19 @@ const CORRECT_PASSWORD = process.env.APP_PASSWORD?.trim() || "1234"; // default 
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const password = body.password as string | undefined;
+    const formData = await req.formData();
+    const password = formData.get("password");
 
-    if (!password || password !== CORRECT_PASSWORD) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid password" },
-        { status: 401 }
-      );
+    // ❌ Wrong or missing password → back to /login with ?error=1
+    if (typeof password !== "string" || password !== CORRECT_PASSWORD) {
+      const url = new URL("/login", req.url);
+      url.searchParams.set("error", "1");
+      return NextResponse.redirect(url);
     }
 
-    // ✅ Set a simple auth cookie
-    const res = NextResponse.json({ ok: true });
+    // ✅ Correct password → set cookie + redirect to /appraisals
+    const redirectUrl = new URL("/appraisals", req.url);
+    const res = NextResponse.redirect(redirectUrl);
 
     res.cookies.set("appraisal_auth", "1", {
       httpOnly: true,
@@ -28,9 +29,8 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (err) {
     console.error("POST /api/login error", err);
-    return NextResponse.json(
-      { ok: false, error: "Login failed" },
-      { status: 500 }
-    );
+    const url = new URL("/login", req.url);
+    url.searchParams.set("error", "1");
+    return NextResponse.redirect(url);
   }
 }

@@ -1,43 +1,11 @@
-"use client";
+import Link from "next/link";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+type LoginPageProps = {
+  searchParams?: { error?: string };
+};
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "Invalid password");
-        setLoading(false);
-        return;
-      }
-
-      // ✅ Login success → go to appraisals
-      router.push("/appraisals");
-    } catch (err) {
-      console.error("Login error", err);
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
+export default function LoginPage({ searchParams }: LoginPageProps) {
+  const hasError = searchParams?.error === "1";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -49,7 +17,8 @@ export default function LoginPage() {
           Enter the passcode to access your appraisal dashboard.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* 🔐 Simple HTML form posting straight to /api/login */}
+        <form method="POST" action="/api/login" className="space-y-4">
           <div>
             <label
               htmlFor="password"
@@ -59,26 +28,24 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
             />
           </div>
 
-          {error && (
+          {hasError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {error}
+              Invalid password. Please try again.
             </div>
           )}
 
           <button
             type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            className="flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           >
-            {loading ? "Checking…" : "Unlock"}
+            Unlock
           </button>
         </form>
 
