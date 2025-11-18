@@ -40,7 +40,7 @@ export default function RootLayout({
                     Appraisal Capture
                   </div>
                   <div className="text-xs text-slate-500">
-                    app.sellwithbrent.com
+                    app.sellwithbrent.com.au
                   </div>
                 </div>
               </div>
