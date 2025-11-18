@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { supabase } from "@/lib/supabaseClient";
 
 type AppraisalData = {
   appraisalTitle?: string;
@@ -40,24 +37,14 @@ const formatDate = (iso?: string) => {
 };
 
 export default function AppraisalsIndexPage() {
-  const router = useRouter();
-
-  // 🔐 Require login
-  const { user, checking } = useRequireAuth();
-
   const [appraisals, setAppraisals] = useState<Appraisal[]>([]);
-  const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "DRAFT" | "COMPLETED"
-  >("ALL");
-  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔚 Sign out handler
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "DRAFT" | "COMPLETED"
+  >("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -73,6 +60,7 @@ export default function AppraisalsIndexPage() {
 
         const data: Appraisal[] = await res.json();
 
+        // newest first
         const sorted = [...data].sort((a, b) => {
           const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
           const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
@@ -90,15 +78,6 @@ export default function AppraisalsIndexPage() {
 
     load();
   }, []);
-
-  // While checking auth, show a small spinner/message
-  if (checking) {
-    return (
-      <main className="mx-auto max-w-5xl px-6 py-6">
-        <p className="text-sm text-slate-600">Checking session…</p>
-      </main>
-    );
-  }
 
   if (loading) {
     return (
@@ -118,50 +97,49 @@ export default function AppraisalsIndexPage() {
     );
   }
 
-  // Filter + search
-  const visibleAppraisals = appraisals
-    .filter((a) => (statusFilter === "ALL" ? true : a.status === statusFilter))
-    .filter((a) => {
-      if (!search.trim()) return true;
-      const haystack = [
-        a.title,
-        a.data?.appraisalTitle,
-        a.address,
-        a.suburb,
-        a.postcode,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(search.toLowerCase());
-    });
+  // Filtering (status + search)
+  const term = searchTerm.trim().toLowerCase();
+  const filteredByStatus =
+    statusFilter === "ALL"
+      ? appraisals
+      : appraisals.filter((a) => a.status === statusFilter);
+
+  const visibleAppraisals = term
+    ? filteredByStatus.filter((a) => {
+        const title = (a.title || a.data?.appraisalTitle || "").toLowerCase();
+        const addr = (a.address || a.data?.streetAddress || "").toLowerCase();
+        const suburb = (a.suburb || a.data?.suburb || "").toLowerCase();
+        const postcode = (a.postcode || a.data?.postcode || "").toLowerCase();
+        return (
+          title.includes(term) ||
+          addr.includes(term) ||
+          suburb.includes(term) ||
+          postcode.includes(term)
+        );
+      })
+    : filteredByStatus;
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-6">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Appraisals</h1>
           <p className="text-sm text-slate-500">
             View, edit and continue recent appraisal records.
           </p>
-          {user && (
-            <p className="mt-1 text-xs text-slate-400">
-              Signed in as <span className="font-medium">{user.email}</span>
-            </p>
-          )}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          {/* Search */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* Search box */}
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search address, title, suburb…"
-            className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Search by address, suburb or postcode…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-64"
           />
 
-          {/* Filter */}
+          {/* Status filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -179,22 +157,12 @@ export default function AppraisalsIndexPage() {
           >
             + New appraisal
           </Link>
-
-          {/* Sign out */}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-          >
-            Sign out
-          </button>
         </div>
       </div>
 
       {visibleAppraisals.length === 0 ? (
         <p className="text-sm text-slate-500">
-          No appraisals yet. Click &ldquo;New appraisal&rdquo; to create your
-          first one.
+          No appraisals match your filters. Try changing the search or status.
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -219,16 +187,18 @@ export default function AppraisalsIndexPage() {
                   </td>
 
                   <td className="px-4 py-3 align-top text-slate-700">
-                    {a.address
-                      ? `${a.address}${
-                          a.suburb
-                            ? `, ${a.suburb} ${a.postcode ?? ""} ${
-                                a.state ?? ""
-                              }`
+                    {a.address || a.data?.streetAddress
+                      ? `${a.address || a.data?.streetAddress}${
+                          a.suburb || a.data?.suburb
+                            ? `, ${a.suburb || a.data?.suburb} ${
+                                a.postcode || a.data?.postcode || ""
+                              } ${a.state || a.data?.state || ""}`
                             : ""
                         }`
-                      : a.suburb
-                      ? `${a.suburb} ${a.postcode ?? ""} ${a.state ?? ""}`
+                      : a.suburb || a.data?.suburb
+                      ? `${a.suburb || a.data?.suburb} ${
+                          a.postcode || a.data?.postcode || ""
+                        } ${a.state || a.data?.state || ""}`
                       : "—"}
                   </td>
 

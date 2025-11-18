@@ -1,62 +1,121 @@
-import React from "react";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import React, { useEffect, useState, use } from "react";
 import AppraisalForm, {
   FormState,
   EMPTY_FORM,
 } from "@/components/AppraisalForm";
 
-// In Next 16, params is a Promise in server components
 type Props = {
   params: Promise<{ id: string }>;
 };
 
-export default async function EditAppraisalPage({ params }: Props) {
-  // ✅ Await the params Promise
-  const { id: idStr } = await params;
-  const id = Number(idStr);
+type AppraisalRecord = {
+  id: number;
+  title: string | null;
+  address: string | null;
+  suburb: string | null;
+  postcode: string | null;
+  state: string | null;
+  status: string;
+  data: any;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-  if (!Number.isFinite(id) || id <= 0) {
-    return (
-      <div className="p-6 text-sm text-red-600">Invalid appraisal id.</div>
-    );
-  }
+export default function EditAppraisalPage({ params }: Props) {
+  // ✅ Unwrap the params Promise (Next 16 pattern)
+  const { id } = use(params);
+  const numericId = Number(id);
 
-  // Load the appraisal directly with Prisma (no client-side fetch)
-  let appraisal;
-  try {
-    appraisal = await prisma.appraisal.findUnique({
-      where: { id },
-    });
-  } catch (err) {
-    console.error("Error loading appraisal", err);
-    return (
-      <div className="p-6 text-sm text-red-600">Failed to load appraisal.</div>
-    );
-  }
+  const [loading, setLoading] = useState(true);
+  const [initialForm, setInitialForm] = useState<FormState | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!appraisal) {
-    return <div className="p-6 text-sm text-red-600">Appraisal not found.</div>;
-  }
+  useEffect(() => {
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      setError("Invalid appraisal id.");
+      setLoading(false);
+      return;
+    }
 
-  // Build the initial form state from the DB record
-  let initialForm: FormState;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/appraisals/${numericId}`);
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("Error response:", text);
+          setError("Failed to load appraisal.");
+          setLoading(false);
+          return;
+        }
 
-  if (appraisal.data && typeof appraisal.data === "object") {
-    // Full JSON blob already saved
-    initialForm = { ...EMPTY_FORM, ...(appraisal.data as any) };
-  } else {
-    // Fallback: hydrate from top-level columns only
-    initialForm = {
-      ...EMPTY_FORM,
-      appraisalTitle: appraisal.title ?? "",
-      streetAddress: appraisal.address ?? "",
-      suburb: appraisal.suburb ?? "",
-      postcode: appraisal.postcode ?? "",
-      state: appraisal.state ?? "WA",
+        const record: AppraisalRecord = await res.json();
+
+        // Handle older rows where data might be nested as data.data
+        const raw = record.data ?? {};
+        const formSource =
+          raw && typeof raw === "object" && "data" in raw && (raw as any).data
+            ? (raw as any).data
+            : raw;
+
+        const merged: FormState = {
+          ...EMPTY_FORM,
+          ...(formSource as Partial<FormState>),
+          appraisalTitle:
+            (formSource as any)?.appraisalTitle ?? record.title ?? "",
+          streetAddress:
+            (formSource as any)?.streetAddress ?? record.address ?? "",
+          suburb: (formSource as any)?.suburb ?? record.suburb ?? "",
+          postcode: (formSource as any)?.postcode ?? record.postcode ?? "",
+          state: (formSource as any)?.state ?? record.state ?? "WA",
+        };
+
+        setInitialForm(merged);
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load appraisal.");
+        setLoading(false);
+      }
     };
+
+    load();
+  }, [numericId]);
+
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-6">
+        <p className="text-sm text-red-600">Invalid appraisal id.</p>
+      </main>
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-6">
+        <p className="text-sm text-slate-600">Loading appraisal…</p>
+      </main>
+    );
+  }
+
+  if (error || !initialForm) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-6">
+        <p className="text-sm text-red-600">
+          {error || "Could not load appraisal."}
+        </p>
+      </main>
+    );
   }
 
   return (
-    <AppraisalForm mode="edit" appraisalId={id} initialForm={initialForm} />
+    <main className="mx-auto max-w-5xl px-6 py-6">
+      <AppraisalForm
+        mode="edit"
+        appraisalId={numericId}
+        initialForm={initialForm}
+      />
+    </main>
   );
 }
