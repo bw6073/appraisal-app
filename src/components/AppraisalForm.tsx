@@ -337,6 +337,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       return (prev - 1) as Step;
     });
   };
+
   const handleSameAsPropertyToggle = (checked: boolean) => {
     if (checked) {
       updateField(
