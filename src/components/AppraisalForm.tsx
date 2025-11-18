@@ -416,27 +416,23 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
   };
 
   const handleDelete = async () => {
-    console.log(
-      "Delete clicked. appraisalId value:",
-      appraisalId,
-      "type:",
-      typeof appraisalId
+    if (!appraisalId) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this appraisal? This cannot be undone."
     );
 
-    if (!appraisalId || typeof appraisalId !== "number") {
-      alert("No valid appraisalId provided to delete.");
-      return;
-    }
-
-    const url = `/api/appraisals/${appraisalId}`;
-    console.log("Calling DELETE", url);
+    // If they hit “Cancel”, do nothing
+    if (!confirmed) return;
 
     try {
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await fetch(`/api/appraisals/${appraisalId}`, {
+        method: "DELETE",
+      });
 
       if (!res.ok) {
         const text = await res.text();
-        console.error("Delete error response body:", text);
+        console.error("Delete error:", text);
         alert("Failed to delete appraisal.");
         return;
       }
@@ -444,7 +440,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       alert("Appraisal deleted.");
       window.location.href = "/appraisals";
     } catch (err) {
-      console.error("Delete exception:", err);
+      console.error(err);
       alert("Something went wrong deleting appraisal.");
     }
   };
