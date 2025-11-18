@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Appraisal {
+  id        Int      @id @default(autoincrement())
+  title     String
+  address   String
+  suburb    String
+  postcode  String
+  state     String
+  status    String   @default("DRAFT")
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
