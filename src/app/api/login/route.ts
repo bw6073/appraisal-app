@@ -1,36 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CORRECT_PASSWORD = process.env.APP_PASSWORD?.trim() || "1234"; // default for now
+const COOKIE_NAME = "appraisal_auth";
+// For now we hard-code 1234. Later you can swap to process.env.APP_PASSWORD.
+const PASSWORD = process.env.APP_PASSWORD || "1234";
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const password = formData.get("password");
+    const { password } = await req.json();
 
-    // ❌ Wrong or missing password → back to /login with ?error=1
-    if (typeof password !== "string" || password !== CORRECT_PASSWORD) {
-      const url = new URL("/login", req.url);
-      url.searchParams.set("error", "1");
-      return NextResponse.redirect(url);
+    if (!password || password !== PASSWORD) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid password" },
+        { status: 401 }
+      );
     }
 
-    // ✅ Correct password → set cookie + redirect to /appraisals
-    const redirectUrl = new URL("/appraisals", req.url);
-    const res = NextResponse.redirect(redirectUrl);
+    const res = NextResponse.json({ ok: true });
 
-    res.cookies.set("appraisal_auth", "1", {
+    // Set an auth cookie that middleware will read
+    res.cookies.set(COOKIE_NAME, "1", {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // required for Vercel HTTPS
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+      path: "/", // visible on all routes
       maxAge: 60 * 60 * 8, // 8 hours
     });
 
     return res;
   } catch (err) {
     console.error("POST /api/login error", err);
-    const url = new URL("/login", req.url);
-    url.searchParams.set("error", "1");
-    return NextResponse.redirect(url);
+    return NextResponse.json(
+      { ok: false, error: "Something went wrong" },
+      { status: 500 }
+    );
   }
 }
