@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { supabase } from "@/lib/supabaseClient";
 
 type AppraisalData = {
   appraisalTitle?: string;
@@ -37,13 +40,24 @@ const formatDate = (iso?: string) => {
 };
 
 export default function AppraisalsIndexPage() {
+  const router = useRouter();
+
+  // 🔐 Require login
+  const { user, checking } = useRequireAuth();
+
   const [appraisals, setAppraisals] = useState<Appraisal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "DRAFT" | "COMPLETED"
   >("ALL");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 🔚 Sign out handler
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -77,100 +91,113 @@ export default function AppraisalsIndexPage() {
     load();
   }, []);
 
-  const visibleAppraisals = useMemo(() => {
-    let list =
-      statusFilter === "ALL"
-        ? appraisals
-        : appraisals.filter((a) => a.status === statusFilter);
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((a) => {
-        const title = a.title || a.data?.appraisalTitle || `Appraisal #${a.id}`;
-        const addr =
-          a.address ||
-          a.data?.streetAddress ||
-          "" +
-            (a.suburb || a.data?.suburb || "") +
-            (a.postcode || a.data?.postcode || "") +
-            (a.state || a.data?.state || "");
-
-        return (
-          title.toLowerCase().includes(q) ||
-          addr.toLowerCase().includes(q) ||
-          String(a.id).includes(q)
-        );
-      });
-    }
-
-    return list;
-  }, [appraisals, statusFilter, search]);
+  // While checking auth, show a small spinner/message
+  if (checking) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-6">
+        <p className="text-sm text-slate-600">Checking session…</p>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
-      <div>
+      <main className="mx-auto max-w-5xl px-6 py-6">
         <p className="text-sm text-slate-600">Loading appraisals…</p>
-      </div>
+      </main>
     );
   }
 
   if (error) {
     return (
-      <div>
+      <main className="mx-auto max-w-5xl px-6 py-6">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
-      </div>
+      </main>
     );
   }
 
+  // Filter + search
+  const visibleAppraisals = appraisals
+    .filter((a) => (statusFilter === "ALL" ? true : a.status === statusFilter))
+    .filter((a) => {
+      if (!search.trim()) return true;
+      const haystack = [
+        a.title,
+        a.data?.appraisalTitle,
+        a.address,
+        a.suburb,
+        a.postcode,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search.toLowerCase());
+    });
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header row – stacks on mobile */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main className="mx-auto max-w-5xl px-6 py-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-            Appraisals
-          </h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Appraisals</h1>
           <p className="text-sm text-slate-500">
             View, edit and continue recent appraisal records.
           </p>
+          {user && (
+            <p className="mt-1 text-xs text-slate-400">
+              Signed in as <span className="font-medium">{user.email}</span>
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          {/* Search */}
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by address, title, suburb…"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-56"
+            placeholder="Search address, title, suburb…"
+            className="w-full max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
 
+          {/* Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm sm:w-auto"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           >
             <option value="ALL">All statuses</option>
             <option value="DRAFT">Draft</option>
             <option value="COMPLETED">Completed</option>
           </select>
 
+          {/* New button */}
           <Link
             href="/appraisals/new"
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
           >
             + New appraisal
           </Link>
+
+          {/* Sign out */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
       {visibleAppraisals.length === 0 ? (
         <p className="text-sm text-slate-500">
-          No appraisals found. Adjust filters or create a new appraisal.
+          No appraisals yet. Click &ldquo;New appraisal&rdquo; to create your
+          first one.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
               <tr>
@@ -192,18 +219,16 @@ export default function AppraisalsIndexPage() {
                   </td>
 
                   <td className="px-4 py-3 align-top text-slate-700">
-                    {a.address || a.data?.streetAddress
-                      ? `${a.address || a.data?.streetAddress}${
-                          a.suburb || a.data?.suburb
-                            ? `, ${a.suburb || a.data?.suburb} ${
-                                a.postcode || a.data?.postcode || ""
-                              } ${a.state || a.data?.state || ""}`
+                    {a.address
+                      ? `${a.address}${
+                          a.suburb
+                            ? `, ${a.suburb} ${a.postcode ?? ""} ${
+                                a.state ?? ""
+                              }`
                             : ""
                         }`
-                      : a.suburb || a.data?.suburb
-                      ? `${a.suburb || a.data?.suburb} ${
-                          a.postcode || a.data?.postcode || ""
-                        } ${a.state || a.data?.state || ""}`
+                      : a.suburb
+                      ? `${a.suburb} ${a.postcode ?? ""} ${a.state ?? ""}`
                       : "—"}
                   </td>
 
@@ -237,6 +262,6 @@ export default function AppraisalsIndexPage() {
           </table>
         </div>
       )}
-    </div>
+    </main>
   );
 }
