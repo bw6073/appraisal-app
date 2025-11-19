@@ -7,6 +7,7 @@ import AppraisalForm, {
 } from "@/components/AppraisalForm";
 
 type Props = {
+  // ✅ params is a Promise in Next 16
   params: Promise<{ id: string }>;
 };
 
@@ -24,7 +25,7 @@ type AppraisalRecord = {
 };
 
 export default function EditAppraisalPage({ params }: Props) {
-  // ✅ Unwrap the params Promise (Next 16 pattern)
+  // ✅ Unwrap the Promise from Next
   const { id } = use(params);
   const numericId = Number(id);
 
@@ -52,7 +53,6 @@ export default function EditAppraisalPage({ params }: Props) {
 
         const record: AppraisalRecord = await res.json();
 
-        // Handle older rows where data might be nested as data.data
         const raw = record.data ?? {};
         const formSource =
           raw && typeof raw === "object" && "data" in raw && (raw as any).data
