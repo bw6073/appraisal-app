@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 
-// In Next 16, params is a Promise in route handlers
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -14,7 +13,7 @@ function jsonError(message: string, status = 500) {
 
 /**
  * GET /api/appraisals/[id]
- * Load one appraisal by id
+ * Load one appraisal by id for the current user
  */
 export async function GET(_req: NextRequest, context: RouteContext) {
   try {
@@ -27,25 +26,26 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
     const supabase = await supabaseServer();
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return jsonError("Unauthorised", 401);
+    }
+
     const { data, error } = await supabase
       .from("appraisals")
       .select("*")
       .eq("id", numericId)
-      .single();
+      .single(); // RLS ensures this row must belong to user
 
     if (error || !data) {
       console.error("Supabase GET /appraisals/[id] error:", error);
       return jsonError("Appraisal not found", 404);
     }
 
-    // Normalise timestamps so the summary/print page can use them
-    const mapped = {
-      ...data,
-      createdAt: (data as any).created_at ?? null,
-      updatedAt: (data as any).updated_at ?? null,
-    };
-
-    return NextResponse.json(mapped);
+    return NextResponse.json(data);
   } catch (err) {
     console.error("GET /api/appraisals/[id] error:", err);
     return jsonError("Failed to load appraisal", 500);
@@ -54,7 +54,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
 /**
  * PATCH /api/appraisals/[id]
- * Update an existing appraisal
+ * Update an existing appraisal for the current user
  */
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
@@ -63,6 +63,16 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     if (!Number.isFinite(numericId) || numericId <= 0) {
       return jsonError("Invalid id", 400);
+    }
+
+    const supabase = await supabaseServer();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return jsonError("Unauthorised", 401);
     }
 
     const body = await req.json();
@@ -81,8 +91,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       return jsonError("streetAddress, suburb and postcode are required", 400);
     }
 
-    const supabase = await supabaseServer();
-
     const { data: updated, error } = await supabase
       .from("appraisals")
       .update({
@@ -96,7 +104,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       })
       .eq("id", numericId)
       .select("*")
-      .single();
+      .single(); // RLS: can only update own row
 
     if (error || !updated) {
       console.error("Supabase PATCH /appraisals/[id] error:", error);
@@ -112,7 +120,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
 /**
  * DELETE /api/appraisals/[id]
- * Delete one appraisal
+ * Delete one appraisal for the current user
  */
 export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {
@@ -125,10 +133,18 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
 
     const supabase = await supabaseServer();
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return jsonError("Unauthorised", 401);
+    }
+
     const { error } = await supabase
       .from("appraisals")
       .delete()
-      .eq("id", numericId);
+      .eq("id", numericId); // RLS again: only own rows
 
     if (error) {
       console.error("Supabase DELETE /appraisals/[id] error:", error);

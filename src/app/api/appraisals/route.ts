@@ -4,7 +4,6 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 type DbAppraisalRow = {
   id: number;
-  user_id?: string | null;
   title: string | null;
   address: string | null;
   suburb: string | null;
@@ -12,6 +11,7 @@ type DbAppraisalRow = {
   state: string | null;
   status: string;
   data: any;
+  user_id: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -23,48 +23,30 @@ function jsonError(message: string, status = 500) {
 
 /**
  * GET /api/appraisals
- * Prefer per-user results if we can see a user,
- * otherwise fall back to ALL appraisals (dev / offline-friendly).
+ * List appraisals for the current logged-in user
  */
 export async function GET(_req: NextRequest) {
   try {
     const supabase = await supabaseServer();
 
-    let userId: string | null = null;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        console.warn("auth.getUser error in GET /api/appraisals:", userError);
-      }
-
-      if (user) {
-        userId = user.id;
-      }
-    } catch (err) {
-      console.warn("auth.getUser threw in GET /api/appraisals:", err);
+    if (userError) {
+      console.error("auth.getUser error in GET /api/appraisals:", userError);
     }
 
-    // Base query
-    let query = supabase
+    if (!user) {
+      return jsonError("Unauthorised", 401);
+    }
+
+    const { data, error } = await supabase
       .from("appraisals")
       .select("*")
+      .eq("user_id", user.id) // 👈 extra guard (RLS also enforces this)
       .order("updated_at", { ascending: false });
-
-    // If we *do* have a user, filter to just their rows
-    if (userId) {
-      query = query.eq("user_id", userId);
-    } else {
-      console.warn(
-        "GET /api/appraisals: no auth user found – returning ALL appraisals (dev fallback)."
-      );
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error("Supabase GET /appraisals error:", error);
@@ -95,29 +77,23 @@ export async function GET(_req: NextRequest) {
 
 /**
  * POST /api/appraisals
- * Create a new appraisal – if we can see a user, attach user_id.
+ * Create a new appraisal for the current user
  */
 export async function POST(req: NextRequest) {
   try {
     const supabase = await supabaseServer();
 
-    let userId: string | null = null;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+    if (userError) {
+      console.error("auth.getUser error in POST /api/appraisals:", userError);
+    }
 
-      if (userError) {
-        console.warn("auth.getUser error in POST /api/appraisals:", userError);
-      }
-
-      if (user) {
-        userId = user.id;
-      }
-    } catch (err) {
-      console.warn("auth.getUser threw in POST /api/appraisals:", err);
+    if (!user) {
+      return jsonError("Unauthorised", 401);
     }
 
     const body = await req.json();
@@ -136,23 +112,18 @@ export async function POST(req: NextRequest) {
       return jsonError("streetAddress, suburb and postcode are required", 400);
     }
 
-    const insertPayload: any = {
-      status: status ?? "DRAFT",
-      title: appraisalTitle ?? "",
-      address: streetAddress,
-      suburb,
-      postcode,
-      state: state ?? "WA",
-      data: data ?? body,
-    };
-
-    if (userId) {
-      insertPayload.user_id = userId;
-    }
-
     const { data: inserted, error } = await supabase
       .from("appraisals")
-      .insert(insertPayload)
+      .insert({
+        user_id: user.id, // 👈 tie to the user
+        status: status ?? "DRAFT",
+        title: appraisalTitle ?? "",
+        address: streetAddress,
+        suburb,
+        postcode,
+        state: state ?? "WA",
+        data: data ?? body,
+      })
       .select("*")
       .single();
 

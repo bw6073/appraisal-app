@@ -1,14 +1,23 @@
 // src/app/appraisals/layout.tsx
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { supabaseServer } from "@/lib/supabaseServer";
 
-export default function AppraisalsLayout({
+export default async function AppraisalsLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <main>{children}</main>
-    </div>
-  );
+  const supabase = await supabaseServer();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  // No extra header here – RootLayout already handles that.
+  return <>{children}</>;
 }
