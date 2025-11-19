@@ -407,6 +407,10 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     });
   };
 
+  const goToStep = (target: Step) => {
+    setStep(target);
+  };
+
   const handleSameAsPropertyToggle = (checked: boolean) => {
     if (checked) {
       updateField(
@@ -568,7 +572,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-6">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">
               {mode === "create" ? "New appraisal" : "Edit appraisal"}
@@ -582,6 +586,36 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
           <div className="hidden text-xs text-slate-500 sm:block">
             Changes are saved back to your database via the API routes.
           </div>
+        </div>
+
+        {/* Quick step navigation */}
+        <div className="mb-4 flex flex-wrap gap-2 text-xs">
+          {(
+            [
+              { num: 1, label: "Overview" },
+              { num: 2, label: "Property" },
+              { num: 3, label: "Rooms" },
+              { num: 4, label: "Owner & occupancy" },
+              { num: 5, label: "Motivation" },
+              { num: 6, label: "Pricing" },
+              { num: 7, label: "Presentation & marketing" },
+              { num: 8, label: "Review" },
+            ] as { num: Step; label: string }[]
+          ).map(({ num, label }) => (
+            <button
+              key={num}
+              type="button"
+              onClick={() => goToStep(num)}
+              className={
+                "rounded-full border px-3 py-1 transition text-[11px] " +
+                (step === num
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100")
+              }
+            >
+              {num === 8 ? label : `${num}. ${label}`}
+            </button>
+          ))}
         </div>
 
         {/* Progress bar */}
