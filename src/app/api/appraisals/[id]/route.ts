@@ -3,91 +3,68 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 // In Next 16, params is a Promise in route handlers
-type RouteParams = { id: string };
-type RouteContext = { params: Promise<RouteParams> };
-
-type DbAppraisalRow = {
-  id: number;
-  title: string | null;
-  address: string | null;
-  suburb: string | null;
-  postcode: string | null;
-  state: string | null;
-  status: string;
-  data: any;
-  created_at: string | null;
-  updated_at: string | null;
+type RouteContext = {
+  params: Promise<{ id: string }>;
 };
 
-function mapRow(row: DbAppraisalRow) {
-  return {
-    id: row.id,
-    title: row.title,
-    address: row.address,
-    suburb: row.suburb,
-    postcode: row.postcode,
-    state: row.state,
-    status: row.status,
-    data: row.data ?? null,
-    createdAt: row.created_at ?? undefined,
-    updatedAt: row.updated_at ?? undefined,
-  };
+// Small helper so we can *always* log + return JSON
+function jsonError(message: string, status = 500) {
+  console.error(message);
+  return NextResponse.json({ error: message }, { status });
 }
 
 /**
- * GET /api/appraisals/:id
+ * GET /api/appraisals/[id]
+ * Load one appraisal
  */
 export async function GET(_req: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-  const numericId = Number(id);
-
-  if (!Number.isFinite(numericId) || numericId <= 0) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
   try {
-    const { data, error } = await supabaseServer
+    const { id } = await context.params;
+    const numericId = Number(id);
+
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      return jsonError("Invalid id", 400);
+    }
+
+    const supabase = await supabaseServer();
+
+    const { data, error } = await supabase
       .from("appraisals")
       .select("*")
       .eq("id", numericId)
       .single();
 
-    if (error && error.code !== "PGRST116") {
-      console.error(
-        "Supabase SELECT error in GET /api/appraisals/[id]:",
-        error
-      );
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !data) {
+      console.error("Supabase GET /appraisals/[id] error:", error);
+      return jsonError("Appraisal not found", 404);
     }
 
-    if (!data) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const mapped = mapRow(data as DbAppraisalRow);
-    return NextResponse.json(mapped);
+    return NextResponse.json(data);
   } catch (err) {
-    console.error("GET /api/appraisals/[id] fatal error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch appraisal" },
-      { status: 500 }
-    );
+    console.error("GET /api/appraisals/[id] error:", err);
+    return jsonError("Failed to load appraisal", 500);
   }
 }
 
 /**
- * PUT /api/appraisals/:id
+ * PATCH /api/appraisals/[id]
+ * Update an existing appraisal
  */
-export async function PUT(req: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-  const numericId = Number(id);
-
-  if (!Number.isFinite(numericId) || numericId <= 0) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
+export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
+    const { id } = await context.params;
+    const numericId = Number(id);
+
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      return jsonError("Invalid id", 400);
+    }
+
     const body = await req.json();
+
+    // This assumes your form POST sends the same shape for new + edit:
+    // {
+    //   status, appraisalTitle, streetAddress, suburb, postcode, state, data: { ...full form... }
+    // }
     const {
       status,
       appraisalTitle,
@@ -98,75 +75,66 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       data,
     } = body;
 
-    const { data: updated, error } = await supabaseServer
+    if (!streetAddress || !suburb || !postcode) {
+      return jsonError("streetAddress, suburb and postcode are required", 400);
+    }
+
+    const supabase = await supabaseServer();
+
+    const { data: updated, error } = await supabase
       .from("appraisals")
       .update({
-        title: appraisalTitle ?? "",
-        address: streetAddress ?? "",
-        suburb: suburb ?? "",
-        postcode: postcode ?? "",
-        state: state ?? "WA",
         status: status ?? "DRAFT",
-        data: data ?? {},
+        title: appraisalTitle ?? "",
+        address: streetAddress,
+        suburb,
+        postcode,
+        state: state ?? "WA",
+        data: data ?? body, // keep full form either in data or fallback
       })
       .eq("id", numericId)
       .select("*")
       .single();
 
-    if (error) {
-      console.error(
-        "Supabase UPDATE error in PUT /api/appraisals/[id]:",
-        error
-      );
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error || !updated) {
+      console.error("Supabase PATCH /appraisals/[id] error:", error);
+      return jsonError("Failed to update appraisal", 500);
     }
 
-    if (!updated) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const mapped = mapRow(updated as DbAppraisalRow);
-    return NextResponse.json(mapped);
+    return NextResponse.json(updated);
   } catch (err) {
-    console.error("PUT /api/appraisals/[id] fatal error:", err);
-    return NextResponse.json(
-      { error: "Failed to update appraisal" },
-      { status: 500 }
-    );
+    console.error("PATCH /api/appraisals/[id] error:", err);
+    return jsonError("Failed to update appraisal", 500);
   }
 }
 
 /**
- * DELETE /api/appraisals/:id
+ * DELETE /api/appraisals/[id]
  */
 export async function DELETE(_req: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-  const numericId = Number(id);
-
-  if (!Number.isFinite(numericId) || numericId <= 0) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-  }
-
   try {
-    const { error } = await supabaseServer
+    const { id } = await context.params;
+    const numericId = Number(id);
+
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      return jsonError("Invalid id", 400);
+    }
+
+    const supabase = await supabaseServer();
+
+    const { error } = await supabase
       .from("appraisals")
       .delete()
       .eq("id", numericId);
 
     if (error) {
-      console.error(
-        "Supabase DELETE error in DELETE /api/appraisals/[id]:",
-        error
-      );
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Supabase DELETE /appraisals/[id] error:", error);
+      return jsonError("Failed to delete appraisal", 500);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/appraisals/[id] fatal error:", err);
-    return NextResponse.json(
-      { error: "Failed to delete appraisal" },
-      { status: 500 }
-    );
+    console.error("DELETE /api/appraisals/[id] error:", err);
+    return jsonError("Failed to delete appraisal", 500);
   }
 }

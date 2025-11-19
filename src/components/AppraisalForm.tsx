@@ -348,68 +348,73 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     updateField("sameAsProperty", checked);
   };
 
-  const handleSave = async (finalise: boolean) => {
+  const handleSave = async (markComplete: boolean) => {
+    if (saving) return;
     setSaving(true);
+
     try {
-      const status = finalise ? "COMPLETED" : "DRAFT";
+      // Basic required fields check on the client side
+      if (!form.streetAddress || !form.suburb || !form.postcode) {
+        alert(
+          "Please fill in street address, suburb and postcode before saving."
+        );
+        setSaving(false);
+        return;
+      }
 
       const payload = {
-        status,
+        status: markComplete ? "COMPLETED" : "DRAFT",
         appraisalTitle: form.appraisalTitle,
         streetAddress: form.streetAddress,
         suburb: form.suburb,
         postcode: form.postcode,
-        state: form.state,
-        data: form, // full form JSON
+        state: form.state || "WA",
+        data: form, // full form goes here
       };
 
-      let res: Response;
+      const url =
+        mode === "edit" && appraisalId
+          ? `/api/appraisals/${appraisalId}`
+          : "/api/appraisals";
 
-      if (mode === "create") {
-        res = await fetch("/api/appraisals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        if (!appraisalId) {
-          throw new Error("Missing appraisalId for edit mode");
-        }
-        res = await fetch(`/api/appraisals/${appraisalId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
+      const method = mode === "edit" && appraisalId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
         const text = await res.text();
-        console.error("Save error:", text);
+        console.error("Save error status:", res.status, res.statusText);
+        console.error("Save error body:", text);
         alert("There was a problem saving the appraisal.");
+        setSaving(false);
         return;
       }
 
-      const data = await res.json();
+      const saved = await res.json();
+      console.log("Saved appraisal:", saved);
 
-      if (mode === "create" && data.id) {
-        // Show message *before* redirecting to edit screen
-        alert(
-          finalise
-            ? "Appraisal created and marked as completed."
-            : "Appraisal draft created."
-        );
-        window.location.href = `/appraisals/${data.id}/edit`;
+      // If you want to force it to show as COMPLETED in the list:
+      if (markComplete) {
+        alert("Appraisal saved and marked as completed.");
       } else {
-        // Editing existing appraisal
-        alert(
-          finalise
-            ? "Appraisal updated and marked as completed."
-            : "Appraisal draft updated."
-        );
+        alert("Appraisal saved as draft.");
       }
+
+      // Optionally redirect back to list after save & complete
+      // if (markComplete) {
+      //   router.push("/appraisals");
+      // } else {
+      //   // stay on page
+      // }
     } catch (err) {
-      console.error(err);
-      alert("Something went wrong while saving.");
+      console.error("Save error (network/JS):", err);
+      alert("Unexpected error while saving the appraisal.");
     } finally {
       setSaving(false);
     }

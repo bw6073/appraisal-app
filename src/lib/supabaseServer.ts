@@ -1,27 +1,30 @@
 // src/lib/supabaseServer.ts
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export async function supabaseServer() {
+  // Next.js 16 – cookies() is async / returns a Promise in this type setup
+  const cookieStore = await cookies();
 
-if (!supabaseUrl) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-}
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseServiceRoleKey) {
-  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-}
-
-// ❗ Server-only Supabase client using the service role key.
-// Do NOT import this in any client component.
-export const supabaseServer = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-    },
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase environment variables");
   }
-);
 
-export type SupabaseServerClient = typeof supabaseServer;
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+      // No-op implementations – we don't need to set cookies from here
+      set() {
+        /* no-op on server */
+      },
+      remove() {
+        /* no-op on server */
+      },
+    },
+  });
+}
