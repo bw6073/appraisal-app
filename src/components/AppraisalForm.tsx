@@ -21,6 +21,20 @@ export type Room = {
   specialFeatures?: string;
 };
 
+export type ExteriorArea = {
+  id: number;
+  label: string;
+  type: string;
+  lengthMetres?: string;
+  widthMetres?: string;
+  approxAreaSqm?: string;
+  construction?: string;
+  power?: string;
+  accessNotes?: string;
+  specialFeatures?: string;
+  conditionRating?: string;
+};
+
 export type NonPriceGoals = {
   bestPrice: number;
   speed: number;
@@ -61,6 +75,12 @@ export type FormState = {
   overallCondition: string;
   styleTheme: string;
   rooms: Room[];
+
+  // ✅ NEW – exterior & grounds
+  exteriorOverallCondition: string;
+  landscapingStyle: string;
+  gardensNotes: string;
+  exteriorAreas: ExteriorArea[];
 
   // Step 4 – owner & occupancy
   ownerNames: string;
@@ -143,6 +163,12 @@ export const EMPTY_FORM: FormState = {
   overallCondition: "",
   styleTheme: "",
   rooms: [],
+
+  // ✅ NEW
+  exteriorOverallCondition: "",
+  landscapingStyle: "",
+  gardensNotes: "",
+  exteriorAreas: [],
 
   ownerNames: "",
   ownerPhonePrimary: "",
@@ -300,6 +326,49 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       return {
         ...prev,
         rooms: currentRooms.filter((room) => room.id !== id),
+      };
+    });
+  };
+
+  const addExteriorArea = () => {
+    setForm((prev) => {
+      const current = prev.exteriorAreas ?? [];
+      return {
+        ...prev,
+        exteriorAreas: [
+          ...current,
+          {
+            id: Date.now(),
+            label: `Area ${current.length + 1}`,
+            type: "shed",
+          },
+        ],
+      };
+    });
+  };
+
+  const updateExteriorArea = (
+    id: number,
+    key: keyof ExteriorArea,
+    value: any
+  ) => {
+    setForm((prev) => {
+      const current = prev.exteriorAreas ?? [];
+      return {
+        ...prev,
+        exteriorAreas: current.map((area) =>
+          area.id === id ? { ...area, [key]: value } : area
+        ),
+      };
+    });
+  };
+
+  const deleteExteriorArea = (id: number) => {
+    setForm((prev) => {
+      const current = prev.exteriorAreas ?? [];
+      return {
+        ...prev,
+        exteriorAreas: current.filter((area) => area.id !== id),
       };
     });
   };
@@ -549,6 +618,9 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
               addRoom={addRoom}
               updateRoom={updateRoom}
               deleteRoom={deleteRoom}
+              addExteriorArea={addExteriorArea}
+              updateExteriorArea={updateExteriorArea}
+              deleteExteriorArea={deleteExteriorArea}
             />
           )}
 
@@ -1028,22 +1100,32 @@ function Step3Rooms({
   addRoom,
   updateRoom,
   deleteRoom,
+  addExteriorArea,
+  updateExteriorArea,
+  deleteExteriorArea,
 }: {
   form: FormState;
   updateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   addRoom: () => void;
   updateRoom: (id: number, key: keyof Room, value: any) => void;
   deleteRoom: (id: number) => void;
+  addExteriorArea: () => void;
+  updateExteriorArea: (id: number, key: keyof ExteriorArea, value: any) => void;
+  deleteExteriorArea: (id: number) => void;
 }) {
-  // ✅ make sure we always have an array
+  // ✅ make sure we always have arrays
   const rooms = form.rooms ?? [];
+  const exteriorAreas = form.exteriorAreas ?? [];
 
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">Interior rooms</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          Interior rooms & exterior areas
+        </h2>
         <p className="text-sm text-slate-500">
-          Capture condition and features room-by-room.
+          Capture condition and features room-by-room and for key outdoor
+          structures.
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -1246,6 +1328,279 @@ function Step3Rooms({
                   value={room.specialFeatures || ""}
                   onChange={(e) =>
                     updateRoom(room.id, "specialFeatures", e.target.value)
+                  }
+                  rows={2}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      {/* EXISTING ROOMS SECTION ABOVE */}
+
+      {/* ✅ NEW – EXTERIOR & STRUCTURES */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Exterior & structures
+          </h3>
+          <button
+            type="button"
+            onClick={addExteriorArea}
+            className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700"
+          >
+            + Add exterior area
+          </button>
+        </div>
+
+        {/* High-level exterior feel */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Overall exterior condition
+            </label>
+            <select
+              value={form.exteriorOverallCondition}
+              onChange={(e) =>
+                updateField("exteriorOverallCondition", e.target.value)
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            >
+              <option value="">Select</option>
+              <option value="tired">Tired</option>
+              <option value="fair">Fair</option>
+              <option value="presentable">Presentable</option>
+              <option value="well_maintained">Well maintained</option>
+              <option value="landscaped">Landscaped / show-home</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Landscaping style
+            </label>
+            <input
+              type="text"
+              value={form.landscapingStyle}
+              onChange={(e) => updateField("landscapingStyle", e.target.value)}
+              placeholder="Native, lawn & garden beds, easy-care, etc."
+              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Gardens / grounds notes
+            </label>
+            <input
+              type="text"
+              value={form.gardensNotes}
+              onChange={(e) => updateField("gardensNotes", e.target.value)}
+              placeholder="Retic, bore, fruit trees, veggie beds, play areas…"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+            />
+          </div>
+        </div>
+
+        {exteriorAreas.length === 0 && (
+          <p className="text-sm text-slate-500">
+            No exterior areas added yet — use this for sheds, workshops, patios,
+            pool, garages and other key outdoor zones.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {exteriorAreas.map((area) => (
+            <div
+              key={area.id}
+              className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-900">
+                  {area.label || "Exterior area"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => deleteExteriorArea(area.id)}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Area label
+                  </label>
+                  <input
+                    type="text"
+                    value={area.label}
+                    onChange={(e) =>
+                      updateExteriorArea(area.id, "label", e.target.value)
+                    }
+                    placeholder="Powered workshop, big shed, alfresco, pool…"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Type
+                  </label>
+                  <select
+                    value={area.type}
+                    onChange={(e) =>
+                      updateExteriorArea(area.id, "type", e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  >
+                    <option value="shed">Shed</option>
+                    <option value="workshop">Workshop</option>
+                    <option value="garage">Garage</option>
+                    <option value="carport">Carport</option>
+                    <option value="patio">Patio / deck</option>
+                    <option value="alfresco">Alfresco</option>
+                    <option value="pool">Pool</option>
+                    <option value="spa">Spa</option>
+                    <option value="yard">Yard / lawn area</option>
+                    <option value="garden">Garden / landscaping</option>
+                    <option value="paddock">Paddock / arena</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Length (m)
+                  </label>
+                  <input
+                    type="text"
+                    value={area.lengthMetres || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(
+                        area.id,
+                        "lengthMetres",
+                        e.target.value
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Width (m)
+                  </label>
+                  <input
+                    type="text"
+                    value={area.widthMetres || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(area.id, "widthMetres", e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Approx area (m²)
+                  </label>
+                  <input
+                    type="text"
+                    value={area.approxAreaSqm || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(
+                        area.id,
+                        "approxAreaSqm",
+                        e.target.value
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Construction
+                  </label>
+                  <input
+                    type="text"
+                    value={area.construction || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(
+                        area.id,
+                        "construction",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Steel frame, colourbond, brick, etc."
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Power
+                  </label>
+                  <input
+                    type="text"
+                    value={area.power || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(area.id, "power", e.target.value)
+                    }
+                    placeholder="None, single-phase, 3-phase…"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Condition (1–5)
+                  </label>
+                  <input
+                    type="text"
+                    value={area.conditionRating || ""}
+                    onChange={(e) =>
+                      updateExteriorArea(
+                        area.id,
+                        "conditionRating",
+                        e.target.value
+                      )
+                    }
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-slate-700">
+                  Access / usage notes
+                </label>
+                <input
+                  type="text"
+                  value={area.accessNotes || ""}
+                  onChange={(e) =>
+                    updateExteriorArea(area.id, "accessNotes", e.target.value)
+                  }
+                  placeholder="Side access, high clearance, rear roller door, etc."
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                />
+              </div>
+
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-slate-700">
+                  Special features
+                </label>
+                <textarea
+                  value={area.specialFeatures || ""}
+                  onChange={(e) =>
+                    updateExteriorArea(
+                      area.id,
+                      "specialFeatures",
+                      e.target.value
+                    )
                   }
                   rows={2}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"

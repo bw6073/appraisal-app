@@ -1,11 +1,14 @@
 // src/app/appraisals/layout.tsx
-import type { ReactNode } from "react";
-import AuthGate from "@/components/AuthGate";
+import React, { ReactNode } from "react";
 
-type Props = {
+export default function AppraisalsLayout({
+  children,
+}: {
   children: ReactNode;
-};
-
-export default function AppraisalsLayout({ children }: Props) {
-  return <AuthGate>{children}</AuthGate>;
+}) {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <main>{children}</main>
+    </div>
+  );
 }

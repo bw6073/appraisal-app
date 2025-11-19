@@ -7,7 +7,6 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-// Small helper so we can *always* log + return JSON
 function jsonError(message: string, status = 500) {
   console.error(message);
   return NextResponse.json({ error: message }, { status });
@@ -15,7 +14,7 @@ function jsonError(message: string, status = 500) {
 
 /**
  * GET /api/appraisals/[id]
- * Load one appraisal
+ * Load one appraisal by id
  */
 export async function GET(_req: NextRequest, context: RouteContext) {
   try {
@@ -39,7 +38,14 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       return jsonError("Appraisal not found", 404);
     }
 
-    return NextResponse.json(data);
+    // Normalise timestamps so the summary/print page can use them
+    const mapped = {
+      ...data,
+      createdAt: (data as any).created_at ?? null,
+      updatedAt: (data as any).updated_at ?? null,
+    };
+
+    return NextResponse.json(mapped);
   } catch (err) {
     console.error("GET /api/appraisals/[id] error:", err);
     return jsonError("Failed to load appraisal", 500);
@@ -61,10 +67,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     const body = await req.json();
 
-    // This assumes your form POST sends the same shape for new + edit:
-    // {
-    //   status, appraisalTitle, streetAddress, suburb, postcode, state, data: { ...full form... }
-    // }
     const {
       status,
       appraisalTitle,
@@ -90,7 +92,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         suburb,
         postcode,
         state: state ?? "WA",
-        data: data ?? body, // keep full form either in data or fallback
+        data: data ?? body,
       })
       .eq("id", numericId)
       .select("*")
@@ -110,6 +112,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
 /**
  * DELETE /api/appraisals/[id]
+ * Delete one appraisal
  */
 export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {

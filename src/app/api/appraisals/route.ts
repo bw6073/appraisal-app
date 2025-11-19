@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 type DbAppraisalRow = {
   id: number;
+  user_id?: string | null;
   title: string | null;
   address: string | null;
   suburb: string | null;
@@ -20,15 +21,50 @@ function jsonError(message: string, status = 500) {
   return NextResponse.json({ error: message }, { status });
 }
 
-// GET /api/appraisals → list all appraisals
-export async function GET() {
+/**
+ * GET /api/appraisals
+ * Prefer per-user results if we can see a user,
+ * otherwise fall back to ALL appraisals (dev / offline-friendly).
+ */
+export async function GET(_req: NextRequest) {
   try {
     const supabase = await supabaseServer();
 
-    const { data, error } = await supabase
+    let userId: string | null = null;
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.warn("auth.getUser error in GET /api/appraisals:", userError);
+      }
+
+      if (user) {
+        userId = user.id;
+      }
+    } catch (err) {
+      console.warn("auth.getUser threw in GET /api/appraisals:", err);
+    }
+
+    // Base query
+    let query = supabase
       .from("appraisals")
       .select("*")
       .order("updated_at", { ascending: false });
+
+    // If we *do* have a user, filter to just their rows
+    if (userId) {
+      query = query.eq("user_id", userId);
+    } else {
+      console.warn(
+        "GET /api/appraisals: no auth user found – returning ALL appraisals (dev fallback)."
+      );
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Supabase GET /appraisals error:", error);
@@ -37,7 +73,6 @@ export async function GET() {
 
     const rows = (data ?? []) as DbAppraisalRow[];
 
-    // 🔁 Normalise from snake_case → camelCase for the frontend
     const mapped = rows.map((row) => ({
       id: row.id,
       title: row.title,
@@ -58,9 +93,33 @@ export async function GET() {
   }
 }
 
-// POST /api/appraisals → create a new appraisal
+/**
+ * POST /api/appraisals
+ * Create a new appraisal – if we can see a user, attach user_id.
+ */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await supabaseServer();
+
+    let userId: string | null = null;
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.warn("auth.getUser error in POST /api/appraisals:", userError);
+      }
+
+      if (user) {
+        userId = user.id;
+      }
+    } catch (err) {
+      console.warn("auth.getUser threw in POST /api/appraisals:", err);
+    }
+
     const body = await req.json();
 
     const {
@@ -77,19 +136,23 @@ export async function POST(req: NextRequest) {
       return jsonError("streetAddress, suburb and postcode are required", 400);
     }
 
-    const supabase = await supabaseServer();
+    const insertPayload: any = {
+      status: status ?? "DRAFT",
+      title: appraisalTitle ?? "",
+      address: streetAddress,
+      suburb,
+      postcode,
+      state: state ?? "WA",
+      data: data ?? body,
+    };
+
+    if (userId) {
+      insertPayload.user_id = userId;
+    }
 
     const { data: inserted, error } = await supabase
       .from("appraisals")
-      .insert({
-        status: status ?? "DRAFT",
-        title: appraisalTitle ?? "",
-        address: streetAddress,
-        suburb,
-        postcode,
-        state: state ?? "WA",
-        data: data ?? body,
-      })
+      .insert(insertPayload)
       .select("*")
       .single();
 

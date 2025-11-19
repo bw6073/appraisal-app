@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import LogoutButton from "@/components/LogoutButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
           {/* Top bar */}
           <header className="border-b bg-white">
             <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+              {/* Left section */}
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-slate-900 text-center text-sm font-bold text-white leading-8">
                   B
@@ -45,20 +47,27 @@ export default function RootLayout({
                 </div>
               </div>
 
-              {/* Simple nav that wraps on small screens */}
-              <nav className="flex flex-col items-end gap-1 text-xs sm:flex-row sm:items-center sm:gap-3">
+              {/* Right navigation */}
+              <nav className="flex items-center gap-3 text-xs">
                 <a
                   href="/appraisals"
                   className="text-slate-600 hover:text-slate-900"
                 >
                   Appraisals
                 </a>
+
                 <a
                   href="/appraisals/new"
                   className="rounded-md bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-700"
                 >
                   + New appraisal
                 </a>
+
+                {/* Signed in + logout */}
+                <span className="hidden sm:inline text-slate-500">
+                  Signed in
+                </span>
+                <LogoutButton />
               </nav>
             </div>
           </header>
