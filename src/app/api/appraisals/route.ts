@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 
+/** Shape of a DB row */
 type DbAppraisalRow = {
   id: number;
   title: string | null;
@@ -16,45 +17,49 @@ type DbAppraisalRow = {
   updated_at?: string | null;
 };
 
-function jsonError(message: string, status = 500) {
+/** Standardised error JSON output */
+function jsonError(message: string, status: number = 500) {
   console.error(message);
   return NextResponse.json({ error: message }, { status });
 }
 
-/**
- * GET /api/appraisals
- * List appraisals for the current logged-in user
- */
+/* -----------------------------------------------------------
+   GET /api/appraisals
+   Returns *only* the logged-in user’s appraisals
+----------------------------------------------------------- */
 export async function GET(_req: NextRequest) {
   try {
     const supabase = await supabaseServer();
 
+    // Identify user
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error("auth.getUser error in GET /api/appraisals:", userError);
+      console.error("auth.getUser error:", userError);
     }
 
     if (!user) {
       return jsonError("Unauthorised", 401);
     }
 
+    // Fetch only rows owned by this user
     const { data, error } = await supabase
       .from("appraisals")
       .select("*")
-      .eq("user_id", user.id) // 👈 extra guard (RLS also enforces this)
+      .eq("user_id", user.id)
       .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("Supabase GET /appraisals error:", error);
+      console.error("Supabase GET error:", error);
       return jsonError("Failed to load appraisals", 500);
     }
 
     const rows = (data ?? []) as DbAppraisalRow[];
 
+    // Convert snake_case → camelCase
     const mapped = rows.map((row) => ({
       id: row.id,
       title: row.title,
@@ -75,21 +80,22 @@ export async function GET(_req: NextRequest) {
   }
 }
 
-/**
- * POST /api/appraisals
- * Create a new appraisal for the current user
- */
+/* -----------------------------------------------------------
+   POST /api/appraisals
+   Creates a new appraisal under the logged-in user
+----------------------------------------------------------- */
 export async function POST(req: NextRequest) {
   try {
     const supabase = await supabaseServer();
 
+    // Identify user
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error("auth.getUser error in POST /api/appraisals:", userError);
+      console.error("auth.getUser error:", userError);
     }
 
     if (!user) {
@@ -112,10 +118,12 @@ export async function POST(req: NextRequest) {
       return jsonError("streetAddress, suburb and postcode are required", 400);
     }
 
+    const nowIso = new Date().toISOString();
+
     const { data: inserted, error } = await supabase
       .from("appraisals")
       .insert({
-        user_id: user.id, // 👈 tie to the user
+        user_id: user.id,
         status: status ?? "DRAFT",
         title: appraisalTitle ?? "",
         address: streetAddress,
@@ -123,12 +131,13 @@ export async function POST(req: NextRequest) {
         postcode,
         state: state ?? "WA",
         data: data ?? body,
+        updated_at: nowIso, // Set initial "last updated"
       })
       .select("*")
       .single();
 
     if (error || !inserted) {
-      console.error("Supabase POST /appraisals error:", error);
+      console.error("Supabase POST error:", error);
       return jsonError("Failed to create appraisal", 500);
     }
 
