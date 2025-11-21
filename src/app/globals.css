@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Make date inputs the same width as other fields on mobile */
+input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@layer base {
+  input[type="date"] {
+    @apply w-full;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
