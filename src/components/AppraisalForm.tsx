@@ -28,6 +28,7 @@ export type Room = {
   flooring?: string;
   heatingCooling?: string;
   specialFeatures?: string;
+  extraFields?: Record<string, string>;
 };
 
 export type ExteriorArea = {
@@ -40,6 +41,7 @@ export type ExteriorArea = {
   conditionRating?: string;
   construction?: string;
   specialFeatures?: string;
+  extraFields?: Record<string, string>;
 };
 
 export type NonPriceGoals = {
@@ -260,6 +262,322 @@ const MARKETING_CHANNELS = [
   "Signboard only",
   "Letterbox / local area",
 ];
+
+/**
+ * Dynamic field definitions for INTERIOR rooms
+ */
+const ROOM_FEATURE_CONFIG: Record<
+  string,
+  { id: string; label: string; placeholder?: string }[]
+> = {
+  kitchen: [
+    {
+      id: "cooktopOven",
+      label: "Cooktop / oven",
+      placeholder: "Gas, electric, induction, 900mm, freestanding, etc.",
+    },
+    {
+      id: "benchtops",
+      label: "Benchtops",
+      placeholder: "Stone, laminate, timber...",
+    },
+    {
+      id: "sink",
+      label: "Sink",
+      placeholder: "Single, double, deep, undermount...",
+    },
+    {
+      id: "dishwasher",
+      label: "Dishwasher",
+      placeholder: "Yes / brand / integrated...",
+    },
+    {
+      id: "pantry",
+      label: "Pantry",
+      placeholder: "Built-in, walk-in, corner, etc.",
+    },
+  ],
+
+  bedroom: [
+    {
+      id: "robe",
+      label: "Robe",
+      placeholder: "Built-in, walk-in, none...",
+    },
+    {
+      id: "ceilingFan",
+      label: "Ceiling fan",
+      placeholder: "Yes / no / type...",
+    },
+    {
+      id: "windowTreatment",
+      label: "Window treatments",
+      placeholder: "Blinds, curtains, shutters...",
+    },
+  ],
+
+  bathroom: [
+    {
+      id: "showerBath",
+      label: "Shower / bath",
+      placeholder: "Shower only, shower over bath, separate bath...",
+    },
+    {
+      id: "vanity",
+      label: "Vanity",
+      placeholder: "Single / double, storage, condition...",
+    },
+    {
+      id: "toilet",
+      label: "Toilet",
+      placeholder: "In room / separate, condition...",
+    },
+    {
+      id: "tiles",
+      label: "Tiling",
+      placeholder: "Floor to ceiling, half height, updated, original...",
+    },
+  ],
+
+  ensuite: [
+    {
+      id: "ensuiteLayout",
+      label: "Layout / fixtures",
+      placeholder: "Shower, vanity, WC, etc.",
+    },
+    {
+      id: "ensuiteCondition",
+      label: "Condition",
+      placeholder: "Original, updated, renovated...",
+    },
+  ],
+
+  family: [
+    {
+      id: "familyFeatures",
+      label: "Key features",
+      placeholder: "Open plan, fireplace, outlook, etc.",
+    },
+  ],
+
+  lounge: [
+    {
+      id: "loungeFeatures",
+      label: "Key features",
+      placeholder: "Formal, airy, fireplace, outlook, etc.",
+    },
+  ],
+
+  theatre: [
+    {
+      id: "theatreFeatures",
+      label: "Theatre details",
+      placeholder: "Darkened room, speakers, projector wiring...",
+    },
+  ],
+
+  study: [
+    {
+      id: "studyFeatures",
+      label: "Study setup",
+      placeholder: "Built-in desk, storage, nook, etc.",
+    },
+  ],
+
+  laundry: [
+    {
+      id: "laundryStorage",
+      label: "Storage / bench",
+      placeholder: "Overhead cupboards, linen, bench space...",
+    },
+    {
+      id: "laundryAccess",
+      label: "External access",
+      placeholder: "Direct to yard / drying area...",
+    },
+  ],
+
+  meals: [
+    {
+      id: "mealsFeatures",
+      label: "Meals area",
+      placeholder: "Open to kitchen, outlook, size notes...",
+    },
+  ],
+
+  other: [
+    {
+      id: "otherNotes",
+      label: "Room notes",
+      placeholder: "Use, key features, flexibility, etc.",
+    },
+  ],
+};
+
+/**
+ * Dynamic field definitions for EXTERIOR structures
+ */
+const EXTERIOR_FEATURE_CONFIG: Record<
+  string,
+  { id: string; label: string; placeholder?: string }[]
+> = {
+  patio: [
+    {
+      id: "roofType",
+      label: "Roof type",
+      placeholder: "Gable, flat, insulated...",
+    },
+    {
+      id: "paving",
+      label: "Floor / paving",
+      placeholder: "Pavers, concrete, composite deck...",
+    },
+    {
+      id: "powerLighting",
+      label: "Power / lighting",
+      placeholder: "GPOs, lights, fans, heaters...",
+    },
+  ],
+
+  alfresco: [
+    {
+      id: "alfrescoFinish",
+      label: "Finish",
+      placeholder: "Under main roof, tiled, paved...",
+    },
+    {
+      id: "alfrescoConnection",
+      label: "Connection to house",
+      placeholder: "Stacker doors, bifolds, off kitchen...",
+    },
+  ],
+
+  deck: [
+    {
+      id: "deckMaterial",
+      label: "Deck material",
+      placeholder: "Timber, composite, condition...",
+    },
+  ],
+
+  shed: [
+    {
+      id: "shedPower",
+      label: "Power",
+      placeholder: "Powered / lights / 3-phase...",
+    },
+    {
+      id: "shedAccess",
+      label: "Access",
+      placeholder: "Roller door, vehicle access...",
+    },
+  ],
+
+  workshop: [
+    {
+      id: "workshopPower",
+      label: "Power",
+      placeholder: "Single / 3-phase, circuits...",
+    },
+    {
+      id: "workshopFitout",
+      label: "Fit-out",
+      placeholder: "Benches, storage, mezzanine...",
+    },
+  ],
+
+  garage: [
+    {
+      id: "garageDoors",
+      label: "Doors",
+      placeholder: "Auto door(s), extra height...",
+    },
+    {
+      id: "garageAccess",
+      label: "Access",
+      placeholder: "Shoppers entry, rear roller door...",
+    },
+  ],
+
+  carport: [
+    {
+      id: "carportCover",
+      label: "Cover / height",
+      placeholder: "Extra height, caravan suitable...",
+    },
+  ],
+
+  pool: [
+    {
+      id: "poolType",
+      label: "Pool type",
+      placeholder: "Concrete, fibreglass, above-ground...",
+    },
+    {
+      id: "poolHeating",
+      label: "Heating",
+      placeholder: "Solar, electric, gas...",
+    },
+    {
+      id: "poolCompliance",
+      label: "Fencing / compliance",
+      placeholder: "Compliant fencing, condition...",
+    },
+  ],
+
+  spa: [
+    {
+      id: "spaType",
+      label: "Spa type",
+      placeholder: "Standalone, built-in, heated...",
+    },
+  ],
+
+  tank: [
+    {
+      id: "tankCapacity",
+      label: "Capacity & use",
+      placeholder: "Size, plumbed to house or garden...",
+    },
+  ],
+
+  stable: [
+    {
+      id: "stableSetup",
+      label: "Stable setup",
+      placeholder: "Number of stalls, flooring, water...",
+    },
+  ],
+
+  arena: [
+    {
+      id: "arenaSurface",
+      label: "Surface",
+      placeholder: "Sand, grass, purpose-built...",
+    },
+    {
+      id: "arenaSize",
+      label: "Approx size",
+      placeholder: "20x40, 20x60, round yard, etc.",
+    },
+  ],
+
+  driveway: [
+    {
+      id: "drivewayMaterial",
+      label: "Material",
+      placeholder: "Concrete, asphalt, gravel...",
+    },
+  ],
+
+  other: [
+    {
+      id: "otherExteriorNotes",
+      label: "Other notes",
+      placeholder: "Describe the structure or feature...",
+    },
+  ],
+};
 
 type AppraisalFormProps = {
   mode: "create" | "edit";
@@ -1353,6 +1671,45 @@ function Step3Rooms({
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                 />
               </div>
+              {/* ROOM-SPECIFIC FEATURE FIELDS */}
+              {(() => {
+                const config =
+                  ROOM_FEATURE_CONFIG[room.type] ||
+                  ROOM_FEATURE_CONFIG["other"];
+
+                if (!config || config.length === 0) return null;
+
+                return (
+                  <div className="mt-3 space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-800">
+                      {room.type.charAt(0).toUpperCase() + room.type.slice(1)}{" "}
+                      details
+                    </h4>
+
+                    {config.map((field) => (
+                      <div key={field.id}>
+                        <label className="block text-[11px] font-medium text-slate-700">
+                          {field.label}
+                        </label>
+
+                        <input
+                          type="text"
+                          value={room.extraFields?.[field.id] ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            updateRoom(room.id, "extraFields", {
+                              ...(room.extraFields ?? {}),
+                              [field.id]: value,
+                            });
+                          }}
+                          placeholder={field.placeholder}
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -1579,6 +1936,45 @@ function Step4Exterior({
                   className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                 />
               </div>
+              {/* EXTERIOR-SPECIFIC FEATURE FIELDS */}
+              {(() => {
+                const config =
+                  EXTERIOR_FEATURE_CONFIG[area.type] ||
+                  EXTERIOR_FEATURE_CONFIG["other"];
+
+                if (!config || config.length === 0) return null;
+
+                return (
+                  <div className="mt-3 space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-800">
+                      {area.type.charAt(0).toUpperCase() + area.type.slice(1)}{" "}
+                      details
+                    </h4>
+
+                    {config.map((field) => (
+                      <div key={field.id}>
+                        <label className="block text-[11px] font-medium text-slate-700">
+                          {field.label}
+                        </label>
+
+                        <input
+                          type="text"
+                          value={area.extraFields?.[field.id] ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            updateExteriorArea(area.id, "extraFields", {
+                              ...(area.extraFields ?? {}),
+                              [field.id]: value,
+                            });
+                          }}
+                          placeholder={field.placeholder}
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
