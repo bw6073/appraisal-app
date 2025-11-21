@@ -5,7 +5,16 @@ import Link from "next/link";
 
 /* ---------- TYPES ---------- */
 
-export type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type Step =
+  | 1 // Overview
+  | 2 // Property basics
+  | 3 // Interior
+  | 4 // Exterior
+  | 5 // Owner & occupancy
+  | 6 // Motivation & expectations
+  | 7 // Pricing & strategy
+  | 8 // Presentation & marketing
+  | 9; // Review
 
 export type OccupancyType = "OWNER" | "TENANT" | "VACANT" | "HOLIDAY";
 
@@ -27,12 +36,10 @@ export type ExteriorArea = {
   type: string;
   lengthMetres?: string;
   widthMetres?: string;
-  approxAreaSqm?: string;
-  construction?: string;
-  power?: string;
-  accessNotes?: string;
-  specialFeatures?: string;
+  heightMetres?: string;
   conditionRating?: string;
+  construction?: string;
+  specialFeatures?: string;
 };
 
 export type NonPriceGoals = {
@@ -71,18 +78,16 @@ export type FormState = {
   services: string[];
   outdoorFeatures: string[];
 
-  // Step 3 – rooms
+  // Step 3 – interior rooms
   overallCondition: string;
   styleTheme: string;
   rooms: Room[];
 
-  // ✅ NEW – exterior & grounds
-  exteriorOverallCondition: string;
-  landscapingStyle: string;
-  gardensNotes: string;
+  // Step 4 – exterior & structures
   exteriorAreas: ExteriorArea[];
+  landscapeSummary: string;
 
-  // Step 4 – owner & occupancy
+  // Step 5 – owner & occupancy
   ownerNames: string;
   ownerPhonePrimary: string;
   ownerPhoneSecondary: string;
@@ -100,7 +105,7 @@ export type FormState = {
   decisionMakers: string;
   decisionNotes: string;
 
-  // Step 5 – motivation & expectations
+  // Step 6 – motivation & expectations
   primaryReason: string;
   motivationDetail: string;
   idealTimeframe: string;
@@ -113,7 +118,7 @@ export type FormState = {
   nonPriceGoals: NonPriceGoals;
   otherGoalNotes: string;
 
-  // Step 6 – pricing & strategy
+  // Step 7 – pricing & strategy
   suggestedRangeMin: string;
   suggestedRangeMax: string;
   pricingStrategy: string;
@@ -124,7 +129,7 @@ export type FormState = {
   proposedFee: string;
   agreementLikelihood: string;
 
-  // Step 7 – presentation, marketing & follow-up
+  // Step 8 – presentation, marketing & follow-up
   presentationScore: string;
   presentationSummary: string;
   targetBuyerProfile: string;
@@ -164,11 +169,8 @@ export const EMPTY_FORM: FormState = {
   styleTheme: "",
   rooms: [],
 
-  // ✅ NEW
-  exteriorOverallCondition: "",
-  landscapingStyle: "",
-  gardensNotes: "",
   exteriorAreas: [],
+  landscapeSummary: "",
 
   ownerNames: "",
   ownerPhonePrimary: "",
@@ -272,7 +274,22 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
   const [form, setForm] = useState<FormState>(initialForm ?? EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  const totalStepsWithoutReview = 7;
+  const totalStepsWithoutReview = 8; // we now have 8 “content” steps + 1 review
+
+  const MAX_STEP: Step = 9;
+
+  // Pills for quick step navigation
+  const STEP_PILLS: { id: Step; label: string }[] = [
+    { id: 1, label: "Overview" },
+    { id: 2, label: "Property" },
+    { id: 3, label: "Interior" },
+    { id: 4, label: "Exterior" },
+    { id: 5, label: "Owner & occupancy" },
+    { id: 6, label: "Motivation" },
+    { id: 7, label: "Pricing" },
+    { id: 8, label: "Presentation" },
+    { id: 9, label: "Review" },
+  ];
 
   const updateField = <K extends keyof FormState>(
     key: K,
@@ -330,6 +347,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     });
   };
 
+  // Exterior helpers
   const addExteriorArea = () => {
     setForm((prev) => {
       const current = prev.exteriorAreas ?? [];
@@ -340,7 +358,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
           {
             id: Date.now(),
             label: `Area ${current.length + 1}`,
-            type: "shed",
+            type: "patio",
           },
         ],
       };
@@ -395,7 +413,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
 
   const goNext = () => {
     setStep((prev) => {
-      if (prev >= 8) return prev;
+      if (prev >= MAX_STEP) return prev;
       return (prev + 1) as Step;
     });
   };
@@ -405,10 +423,6 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       if (prev <= 1) return prev;
       return (prev - 1) as Step;
     });
-  };
-
-  const goToStep = (target: Step) => {
-    setStep(target);
   };
 
   const handleSameAsPropertyToggle = (checked: boolean) => {
@@ -426,7 +440,6 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     setSaving(true);
 
     try {
-      // Basic required fields check on the client side
       if (!form.streetAddress || !form.suburb || !form.postcode) {
         alert(
           "Please fill in street address, suburb and postcode before saving."
@@ -442,7 +455,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
         suburb: form.suburb,
         postcode: form.postcode,
         state: form.state || "WA",
-        data: form, // full form goes here
+        data: form,
       };
 
       const url =
@@ -472,19 +485,11 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
       const saved = await res.json();
       console.log("Saved appraisal:", saved);
 
-      // If you want to force it to show as COMPLETED in the list:
       if (markComplete) {
         alert("Appraisal saved and marked as completed.");
       } else {
         alert("Appraisal saved as draft.");
       }
-
-      // Optionally redirect back to list after save & complete
-      // if (markComplete) {
-      //   router.push("/appraisals");
-      // } else {
-      //   // stay on page
-      // }
     } catch (err) {
       console.error("Save error (network/JS):", err);
       alert("Unexpected error while saving the appraisal.");
@@ -499,8 +504,6 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     const confirmed = window.confirm(
       "Are you sure you want to delete this appraisal? This cannot be undone."
     );
-
-    // If they hit “Cancel”, do nothing
     if (!confirmed) return;
 
     try {
@@ -524,20 +527,22 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
   };
 
   const stepLabel = (s: Step) => {
-    if (s === 8) return "Review";
     const labels: Record<number, string> = {
       1: "Appraisal overview",
       2: "Property basics & site",
       3: "Interior rooms",
-      4: "Owner & occupancy",
-      5: "Motivation & expectations",
-      6: "Pricing & strategy",
-      7: "Presentation, marketing & follow-up",
+      4: "Exterior & structures",
+      5: "Owner & occupancy",
+      6: "Motivation & expectations",
+      7: "Pricing & strategy",
+      8: "Presentation, marketing & follow-up",
+      9: "Review",
     };
     return labels[s as number];
   };
 
-  // RETURN JSX WILL COME IN SECTION 2
+  const progressPercent = (step / 9) * 100;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b bg-white">
@@ -578,9 +583,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
               {mode === "create" ? "New appraisal" : "Edit appraisal"}
             </h1>
             <p className="text-sm text-slate-500">
-              Step{" "}
-              {step === 8 ? "Review" : `${step} of ${totalStepsWithoutReview}`}{" "}
-              · {stepLabel(step)}
+              Step {step} of 9 · {stepLabel(step)}
             </p>
           </div>
           <div className="hidden text-xs text-slate-500 sm:block">
@@ -588,32 +591,22 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
           </div>
         </div>
 
-        {/* Quick step navigation */}
-        <div className="mb-4 flex flex-wrap gap-2 text-xs">
-          {(
-            [
-              { num: 1, label: "Overview" },
-              { num: 2, label: "Property" },
-              { num: 3, label: "Rooms" },
-              { num: 4, label: "Owner & occupancy" },
-              { num: 5, label: "Motivation" },
-              { num: 6, label: "Pricing" },
-              { num: 7, label: "Presentation & marketing" },
-              { num: 8, label: "Review" },
-            ] as { num: Step; label: string }[]
-          ).map(({ num, label }) => (
+        {/* Step pills */}
+        <div className="mb-4 flex flex-wrap gap-1">
+          {STEP_PILLS.map((pill) => (
             <button
-              key={num}
+              key={pill.id}
               type="button"
-              onClick={() => goToStep(num)}
-              className={
-                "rounded-full border px-3 py-1 transition text-[11px] " +
-                (step === num
+              onClick={() => setStep(pill.id)}
+              className={[
+                "rounded-full border px-2.5 py-1 text-[11px]",
+                step === pill.id
                   ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100")
-              }
+                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100",
+              ].join(" ")}
             >
-              {num === 8 ? label : `${num}. ${label}`}
+              <span className="mr-1 text-[10px] opacity-70">{pill.id}</span>
+              {pill.label}
             </button>
           ))}
         </div>
@@ -622,15 +615,11 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
         <div className="mb-6 h-2 w-full rounded-full bg-slate-200">
           <div
             className="h-2 rounded-full bg-slate-900 transition-all"
-            style={{
-              width:
-                step === 8
-                  ? "100%"
-                  : `${(step / (totalStepsWithoutReview + 1)) * 100}%`,
-            }}
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
 
+        {/* Card wrapper for step content */}
         <div className="rounded-xl bg-white p-5 shadow-sm">
           {/* STEP CONTENT */}
           {step === 1 && (
@@ -652,42 +641,49 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
               addRoom={addRoom}
               updateRoom={updateRoom}
               deleteRoom={deleteRoom}
+            />
+          )}
+
+          {step === 4 && (
+            <Step4Exterior
+              form={form}
+              updateField={updateField}
               addExteriorArea={addExteriorArea}
               updateExteriorArea={updateExteriorArea}
               deleteExteriorArea={deleteExteriorArea}
             />
           )}
 
-          {step === 4 && (
-            <Step4OwnerOccupancy
+          {step === 5 && (
+            <Step5OwnerOccupancy
               form={form}
               updateField={updateField}
               handleSameAsPropertyToggle={handleSameAsPropertyToggle}
             />
           )}
 
-          {step === 5 && (
-            <Step5Motivation
+          {step === 6 && (
+            <Step6Motivation
               form={form}
               updateField={updateField}
               updateNonPriceGoal={updateNonPriceGoal}
             />
           )}
 
-          {step === 6 && (
-            <Step6PricingStrategy form={form} updateField={updateField} />
+          {step === 7 && (
+            <Step7PricingStrategy form={form} updateField={updateField} />
           )}
 
-          {step === 7 && (
-            <Step7PresentationMarketing
+          {step === 8 && (
+            <Step8PresentationMarketing
               form={form}
               updateField={updateField}
               toggleArrayValue={toggleArrayValue}
             />
           )}
 
-          {step === 8 && (
-            <Step8Review form={form} onEditStep={(s) => setStep(s)} />
+          {step === 9 && (
+            <Step9Review form={form} onEditStep={(s) => setStep(s)} />
           )}
         </div>
 
@@ -706,7 +702,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
 
             {/* Right-side buttons */}
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-              {/* Save draft – ALWAYS visible */}
+              {/* Save draft – always visible */}
               <button
                 type="button"
                 onClick={() => handleSave(false)}
@@ -716,7 +712,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
                 {saving ? "Saving…" : "Save draft"}
               </button>
 
-              {/* Save & complete – ALWAYS visible */}
+              {/* Save & complete – always visible */}
               <button
                 type="button"
                 onClick={() => handleSave(true)}
@@ -738,7 +734,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
               )}
 
               {/* Next – hide on final step */}
-              {step < 8 && (
+              {step < 9 && (
                 <button
                   type="button"
                   onClick={goNext}
@@ -754,6 +750,7 @@ function AppraisalForm({ mode, appraisalId, initialForm }: AppraisalFormProps) {
     </div>
   );
 }
+
 /* ---------- STEP 1 ---------- */
 function Step1Overview({
   form,
@@ -1127,39 +1124,28 @@ function Step2PropertyBasics({
   );
 }
 
-/* ---------- STEP 3 ---------- */
+/* ---------- STEP 3 – INTERIOR ---------- */
 function Step3Rooms({
   form,
   updateField,
   addRoom,
   updateRoom,
   deleteRoom,
-  addExteriorArea,
-  updateExteriorArea,
-  deleteExteriorArea,
 }: {
   form: FormState;
   updateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   addRoom: () => void;
   updateRoom: (id: number, key: keyof Room, value: any) => void;
   deleteRoom: (id: number) => void;
-  addExteriorArea: () => void;
-  updateExteriorArea: (id: number, key: keyof ExteriorArea, value: any) => void;
-  deleteExteriorArea: (id: number) => void;
 }) {
-  // ✅ make sure we always have arrays
   const rooms = form.rooms ?? [];
-  const exteriorAreas = form.exteriorAreas ?? [];
 
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Interior rooms & exterior areas
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">Interior rooms</h2>
         <p className="text-sm text-slate-500">
-          Capture condition and features room-by-room and for key outdoor
-          structures.
+          Capture condition and features room-by-room.
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -1371,13 +1357,39 @@ function Step3Rooms({
           ))}
         </div>
       </section>
-      {/* EXISTING ROOMS SECTION ABOVE */}
+    </div>
+  );
+}
 
-      {/* ✅ NEW – EXTERIOR & STRUCTURES */}
+/* ---------- STEP 4 – EXTERIOR & STRUCTURES ---------- */
+function Step4Exterior({
+  form,
+  addExteriorArea,
+  updateExteriorArea,
+  deleteExteriorArea,
+  updateField,
+}: {
+  form: FormState;
+  addExteriorArea: () => void;
+  updateExteriorArea: (id: number, key: keyof ExteriorArea, value: any) => void;
+  deleteExteriorArea: (id: number) => void;
+  updateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}) {
+  const areas = form.exteriorAreas ?? [];
+
+  return (
+    <div className="space-y-6">
       <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Exterior & structures
+        </h2>
+        <p className="text-sm text-slate-500">
+          Capture sheds, workshops, outdoor living and key exterior structures.
+        </p>
+
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">
-            Exterior & structures
+            External areas
           </h3>
           <button
             type="button"
@@ -1388,71 +1400,22 @@ function Step3Rooms({
           </button>
         </div>
 
-        {/* High-level exterior feel */}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-700">
-              Overall exterior condition
-            </label>
-            <select
-              value={form.exteriorOverallCondition}
-              onChange={(e) =>
-                updateField("exteriorOverallCondition", e.target.value)
-              }
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-            >
-              <option value="">Select</option>
-              <option value="tired">Tired</option>
-              <option value="fair">Fair</option>
-              <option value="presentable">Presentable</option>
-              <option value="well_maintained">Well maintained</option>
-              <option value="landscaped">Landscaped / show-home</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-700">
-              Landscaping style
-            </label>
-            <input
-              type="text"
-              value={form.landscapingStyle}
-              onChange={(e) => updateField("landscapingStyle", e.target.value)}
-              placeholder="Native, lawn & garden beds, easy-care, etc."
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-700">
-              Gardens / grounds notes
-            </label>
-            <input
-              type="text"
-              value={form.gardensNotes}
-              onChange={(e) => updateField("gardensNotes", e.target.value)}
-              placeholder="Retic, bore, fruit trees, veggie beds, play areas…"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-            />
-          </div>
-        </div>
-
-        {exteriorAreas.length === 0 && (
+        {areas.length === 0 && (
           <p className="text-sm text-slate-500">
-            No exterior areas added yet — use this for sheds, workshops, patios,
-            pool, garages and other key outdoor zones.
+            No exterior areas added yet — start with patio, alfresco, shed or
+            workshop.
           </p>
         )}
 
         <div className="space-y-3">
-          {exteriorAreas.map((area) => (
+          {areas.map((area) => (
             <div
               key={area.id}
               className="rounded-lg border border-slate-200 bg-slate-50 p-3"
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-900">
-                  {area.label || "Exterior area"}
+                  {area.label || "Area"}
                 </span>
                 <button
                   type="button"
@@ -1474,7 +1437,7 @@ function Step3Rooms({
                     onChange={(e) =>
                       updateExteriorArea(area.id, "label", e.target.value)
                     }
-                    placeholder="Powered workshop, big shed, alfresco, pool…"
+                    placeholder="Patio, Powered shed, Carport..."
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   />
                 </div>
@@ -1490,17 +1453,19 @@ function Step3Rooms({
                     }
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   >
+                    <option value="patio">Patio</option>
+                    <option value="alfresco">Alfresco</option>
+                    <option value="deck">Deck</option>
                     <option value="shed">Shed</option>
                     <option value="workshop">Workshop</option>
-                    <option value="garage">Garage</option>
                     <option value="carport">Carport</option>
-                    <option value="patio">Patio / deck</option>
-                    <option value="alfresco">Alfresco</option>
+                    <option value="garage">Garage</option>
                     <option value="pool">Pool</option>
                     <option value="spa">Spa</option>
-                    <option value="yard">Yard / lawn area</option>
-                    <option value="garden">Garden / landscaping</option>
-                    <option value="paddock">Paddock / arena</option>
+                    <option value="tank">Water tank</option>
+                    <option value="stable">Stable</option>
+                    <option value="arena">Arena / yard</option>
+                    <option value="driveway">Driveway / hardstand</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -1524,6 +1489,7 @@ function Step3Rooms({
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
                     Width (m)
@@ -1537,17 +1503,18 @@ function Step3Rooms({
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
-                    Approx area (m²)
+                    Height / eaves (m)
                   </label>
                   <input
                     type="text"
-                    value={area.approxAreaSqm || ""}
+                    value={area.heightMetres || ""}
                     onChange={(e) =>
                       updateExteriorArea(
                         area.id,
-                        "approxAreaSqm",
+                        "heightMetres",
                         e.target.value
                       )
                     }
@@ -1556,10 +1523,10 @@ function Step3Rooms({
                 </div>
               </div>
 
-              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
-                    Construction
+                    Construction / finish
                   </label>
                   <input
                     type="text"
@@ -1571,24 +1538,11 @@ function Step3Rooms({
                         e.target.value
                       )
                     }
-                    placeholder="Steel frame, colourbond, brick, etc."
+                    placeholder="Timber deck, colourbond, brick, etc."
                     className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700">
-                    Power
-                  </label>
-                  <input
-                    type="text"
-                    value={area.power || ""}
-                    onChange={(e) =>
-                      updateExteriorArea(area.id, "power", e.target.value)
-                    }
-                    placeholder="None, single-phase, 3-phase…"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-                  />
-                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
                     Condition (1–5)
@@ -1610,22 +1564,7 @@ function Step3Rooms({
 
               <div className="mt-2">
                 <label className="block text-xs font-medium text-slate-700">
-                  Access / usage notes
-                </label>
-                <input
-                  type="text"
-                  value={area.accessNotes || ""}
-                  onChange={(e) =>
-                    updateExteriorArea(area.id, "accessNotes", e.target.value)
-                  }
-                  placeholder="Side access, high clearance, rear roller door, etc."
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs"
-                />
-              </div>
-
-              <div className="mt-2">
-                <label className="block text-xs font-medium text-slate-700">
-                  Special features
+                  Special features / notes
                 </label>
                 <textarea
                   value={area.specialFeatures || ""}
@@ -1644,11 +1583,25 @@ function Step3Rooms({
           ))}
         </div>
       </section>
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-slate-900">
+          Gardens & landscaping
+        </h3>
+        <textarea
+          value={form.landscapeSummary}
+          onChange={(e) => updateField("landscapeSummary", e.target.value)}
+          rows={4}
+          placeholder="Lawns, garden beds, fruit trees, retic, paddocks, fencing etc."
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+      </section>
     </div>
   );
 }
-/* ---------- STEP 4 (Owner & Occupancy) ---------- */
-function Step4OwnerOccupancy({
+
+/* ---------- STEP 5 (Owner & Occupancy) ---------- */
+function Step5OwnerOccupancy({
   form,
   updateField,
   handleSameAsPropertyToggle,
@@ -1906,8 +1859,8 @@ function Step4OwnerOccupancy({
   );
 }
 
-/* ---------- STEP 5 ---------- */
-function Step5Motivation({
+/* ---------- STEP 6 – MOTIVATION ---------- */
+function Step6Motivation({
   form,
   updateField,
   updateNonPriceGoal,
@@ -1924,7 +1877,6 @@ function Step5Motivation({
     { key: "longSettlement", label: "Long settlement / rent-back" },
   ];
 
-  // ✅ Ensure we always have a full goals object
   const safeGoals: NonPriceGoals = form.nonPriceGoals ?? {
     bestPrice: 3,
     speed: 3,
@@ -2130,8 +2082,9 @@ function Step5Motivation({
     </div>
   );
 }
-/* ---------- STEP 6 ---------- */
-function Step6PricingStrategy({
+
+/* ---------- STEP 7 – PRICING & STRATEGY ---------- */
+function Step7PricingStrategy({
   form,
   updateField,
 }: {
@@ -2184,12 +2137,12 @@ function Step6PricingStrategy({
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
             <option value="">Select</option>
-            <option value="from">From $X</option>
-            <option value="offers_above">Offers above $X</option>
+            <option value="from">From / Offers above $X</option>
             <option value="offers_in">Offers in the (e.g. high $800s)</option>
             <option value="set_price">Set price</option>
             <option value="auction">Auction</option>
-            <option value="set_date">Set date sale / EOI</option>
+            <option value="set_date">Set date sale</option>
+            <option value="eoi">EOI</option>
           </select>
         </div>
 
@@ -2292,8 +2245,8 @@ function Step6PricingStrategy({
   );
 }
 
-/* ---------- STEP 7 ---------- */
-function Step7PresentationMarketing({
+/* ---------- STEP 8 – PRESENTATION & MARKETING ---------- */
+function Step8PresentationMarketing({
   form,
   updateField,
   toggleArrayValue,
@@ -2436,8 +2389,8 @@ function Step7PresentationMarketing({
   );
 }
 
-/* ---------- STEP 8 – REVIEW ---------- */
-function Step8Review({
+/* ---------- STEP 9 – REVIEW ---------- */
+function Step9Review({
   form,
   onEditStep,
 }: {
@@ -2600,34 +2553,46 @@ function Step8Review({
           onClick={() => onEditStep(1)}
           className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
         >
-          Property overview
+          Overview
         </button>
         <button
           type="button"
           onClick={() => onEditStep(3)}
           className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
         >
-          Rooms
+          Interior
         </button>
         <button
           type="button"
-          onClick={() => onEditStep(5)}
+          onClick={() => onEditStep(4)}
           className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
         >
-          Motivation & goals
+          Exterior
         </button>
         <button
           type="button"
           onClick={() => onEditStep(6)}
           className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
         >
+          Motivation & goals
+        </button>
+        <button
+          type="button"
+          onClick={() => onEditStep(7)}
+          className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
+        >
           Pricing
+        </button>
+        <button
+          type="button"
+          onClick={() => onEditStep(8)}
+          className="rounded-full border border-slate-200 px-2 py-1 hover:bg-slate-100"
+        >
+          Presentation & marketing
         </button>
       </div>
     </section>
   );
 }
-
-// …all your step components above (Step1Overview, Step2PropertyBasics, etc.)
 
 export default AppraisalForm;
